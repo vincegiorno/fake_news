@@ -1,0 +1,8 @@
+# fake_news
+A project to detect fake news
+
+Evaluating the content of a news article is difficult. This project takes a different approach, focusing on language patterns as potentially indicative of more neutral reporting compared to biased writing. It trains a Hierarchical Attention Network on a collection of around 600,000 labeled articles either taken from an [online corpus](https://github.com/several27/FakeNewsCorpus) or scraped from several news websites. The articles were classified as reliable or not reliable based on an overll assessment of the website on which they appeared. This determination relied heavily on the [Media Bias Chart](https://www.adfontesmedia.com/interactive-media-bias-chart/) put together by ad fontes media. The scraped articles were all from sites I deemed reliable, with a rough balance between left- and right-leaning outlets. In training the network, I also endeavored to balance right and left, but I did not fixate on this as the handling of the data neutralized the actual content to a large extent.
+
+Preprocessing eliminated most of the more than 9 million articles in the online corpus, mostly because they were too short or had an unbalanced number of quotation marks. The latter was important, because the approach taken was to replace certain linguistic items with markers, e.g. names with the word "name" and quotations with the word "quote," appearing one, two, three or four times depending on the length of the quotation. The goal was to keep the network from focusing on timebound personalities, reported speech (which would not be indicative of the reporting itself) and other items that could bias the algorithm.
+
+The project is not yet complete, and only the code is present here, since the data files are rather large.
