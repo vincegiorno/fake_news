@@ -10,4 +10,4 @@ RUN pip3 install -r requirements.txt
 
 COPY train.py .
 RUN chmod +x ./train.py
-ENTRYPOINT [ "./train.py"]
+ENTRYPOINT ["./train.py"]

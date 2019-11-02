@@ -6,6 +6,7 @@ import boto3
 import pickle
 import gc
 import sys
+import traceback
 
 import utils.config as config
 from cyclic.rate_cycler import CyclicLR
@@ -144,14 +145,26 @@ clr = CyclicLR(epochs=epochs, num_samples=num_samples, batch_size=batch_size)
 
 if __name__ == "__main__":
 
-    model = build_model()
-    opt = SGD(momentum=0.9)
-    model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['acc'])
+    try:
+        model = build_model()
+        opt = SGD(momentum=0.9)
+        model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['acc'])
 
-    model.fit(X_train, y_train, validation_data=(X_val, y_val),
-            batch_size=batch_size, epochs=epochs, callbacks=[clr, model_checkpoint])
+        model.fit(X_train, y_train, validation_data=(X_val, y_val),
+                batch_size=batch_size, epochs=epochs, callbacks=[clr, model_checkpoint])
 
-    with open('/opt/ml/model/history.pkl', 'wb') as outfile:
-        pickle.dump(model.History.history, outfile)
-    model.save('opt/ml/model/model.h5')
+        with open('/opt/ml/model/history.pkl', 'wb') as outfile:
+            pickle.dump(model.History.history, outfile)
+        model.save('opt/ml/model/model.h5')
+    except Exception as e:
+        # Write out an error file. This will be returned as the failureReason in the
+        # DescribeTrainingJob result.
+        trc = traceback.format_exc()
+        with open('opt/ml/output/failure'), 'w') as s:
+            s.write('Exception during training: ' + str(e) + '\n' + trc)
+        # Printing this causes the exception to be in the training job logs, as well.
+        print('Exception during training: ' + str(e) + '\n' + trc, file=sys.stderr)
+        # A non-zero exit code causes the training job to be marked as Failed.
+        sys.exit(255)
+        
     sys.exit(0)
