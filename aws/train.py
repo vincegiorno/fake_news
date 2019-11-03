@@ -35,7 +35,7 @@ with open(X_train_file, 'rb') as infile:
     X_train = pickle.load(infile).sample(800)
 train_indices = X_train.index
 with open(X_val_file, 'rb') as infile:
-    X_val = pickle.load(infile)).sample(200)
+    X_val = pickle.load(infile).sample(200)
 val_indices = X_val.index
 with open(y_train_file, 'rb') as infile:
     y_train = pickle.load(infile)
@@ -166,5 +166,5 @@ if __name__ == "__main__":
         print('Exception during training: ' + str(e) + '\n' + trc, file=sys.stderr)
         # A non-zero exit code causes the training job to be marked as Failed.
         sys.exit(255)
-        
+
     sys.exit(0)
