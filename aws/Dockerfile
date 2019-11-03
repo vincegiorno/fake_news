@@ -10,4 +10,7 @@ RUN pip3 install -r requirements.txt
 
 COPY train.py .
 RUN chmod +x ./train.py
+
+ENV PATH="/han:${PATH}"
+
 ENTRYPOINT ["./train.py"]
