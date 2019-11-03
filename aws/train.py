@@ -160,7 +160,7 @@ if __name__ == "__main__":
         # Write out an error file. This will be returned as the failureReason in the
         # DescribeTrainingJob result.
         trc = traceback.format_exc()
-        with open('opt/ml/output/failure'), 'w') as s:
+        with open('opt/ml/output/failure', 'w') as s:
             s.write('Exception during training: ' + str(e) + '\n' + trc)
         # Printing this causes the exception to be in the training job logs, as well.
         print('Exception during training: ' + str(e) + '\n' + trc, file=sys.stderr)
