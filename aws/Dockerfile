@@ -5,6 +5,8 @@ RUN mkdir /han
 WORKDIR /han
 
 # install code dependencies
+COPY utils ./utils
+COPY cyclic ./cyclic
 COPY requirements.txt .
 RUN pip3 install -r requirements.txt
 
