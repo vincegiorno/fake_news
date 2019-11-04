@@ -5,6 +5,7 @@ import pandas as pd
 import boto3
 import pickle
 import gc
+import os
 import sys
 import traceback
 
@@ -26,16 +27,17 @@ from tensorflow import set_random_seed, matmul
 
 np.random.seed(3)
 set_random_seed(24)
-data_dir = '/opt/ml/input/data/'
-model_dir = '/opt/ml/model'
+data_dir = '/opt/ml/input/data/train/'
+model_dir = '/opt/ml/model/'
+output_dir = '/opt/ml/output/'
 
 X_train_file, X_val_file, y_train_file, y_val_file = \
     data_dir + 'X_train.pkl', data_dir + 'X_val.pkl', data_dir + 'y_train.pkl', data_dir + 'y_val.pkl'
 with open(X_train_file, 'rb') as infile:
-    X_train = pickle.load(infile).sample(800)
+    X_train = pickle.load(infile).sample(16000)
 train_indices = X_train.index
 with open(X_val_file, 'rb') as infile:
-    X_val = pickle.load(infile).sample(200)
+    X_val = pickle.load(infile).sample(4000)
 val_indices = X_val.index
 with open(y_train_file, 'rb') as infile:
     y_train = pickle.load(infile)
@@ -55,12 +57,13 @@ batch_size = config.batch_size
 test_size = config.test_size
 
 vector_file = data_dir + 'glove.6B.200d.txt'
+words_file = data_dir + 'words.pkl'
 
 num_samples = X_train.shape[0]
 y_train = np.asarray(to_categorical(y_train))
 y_val = np.asarray(to_categorical(y_val))
 
-with open('data/words.pkl', 'rb') as infile:
+with open(words_file, 'rb') as infile:
     words = pickle.load(infile)
 word_index = {}
 for ix, (word, _) in enumerate(words.most_common(max_vocab)):
@@ -139,7 +142,8 @@ def build_model(attention_dim=attention_dim, GRU_dim=GRU_dim, drop=False, drop_p
     
     return Model(article_input, preds)
 
-model_checkpoint = ModelCheckpoint(filepath='opt/ml/model/weights/weights.{epoch:02d}-{val_loss:.2f}.hdf5')
+model_checkpoint = ModelCheckpoint(filepath=os.path.join(model_dir, \
+    'weights.{epoch:02d}-{val_loss:.2f}.hdf5'))
 clr = CyclicLR(epochs=epochs, num_samples=num_samples, batch_size=batch_size)
 
 
@@ -150,17 +154,20 @@ if __name__ == "__main__":
         opt = SGD(momentum=0.9)
         model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['acc'])
 
-        model.fit(X_train, y_train, validation_data=(X_val, y_val),
+        hist = model.fit(X_train, y_train, validation_data=(X_val, y_val),
                 batch_size=batch_size, epochs=epochs, callbacks=[clr, model_checkpoint])
-
-        with open('/opt/ml/model/history.pkl', 'wb') as outfile:
-            pickle.dump(model.History.history, outfile)
-        model.save('opt/ml/model/model.h5')
+        X_train = None
+        X_val = None
+        y_train = None
+        y_val = None
+        gc.collect()
+        with open(os.path.join(model_dir, 'history.pkl'), 'wb') as outfile:
+            pickle.dump(hist.history, outfile)
     except Exception as e:
         # Write out an error file. This will be returned as the failureReason in the
         # DescribeTrainingJob result.
         trc = traceback.format_exc()
-        with open('opt/ml/output/failure', 'w') as s:
+        with open(os.path.join(output_dir, 'failure'), 'w') as s:
             s.write('Exception during training: ' + str(e) + '\n' + trc)
         # Printing this causes the exception to be in the training job logs, as well.
         print('Exception during training: ' + str(e) + '\n' + trc, file=sys.stderr)
