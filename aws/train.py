@@ -29,34 +29,33 @@ np.random.seed(3)
 set_random_seed(24)
 data_dir = '/opt/ml/input/data/train/'
 model_dir = '/opt/ml/model/'
+checkpoints_dir = '/opt/ml/checkpoints/'
 output_dir = '/opt/ml/output/'
 
 X_train_file, X_val_file, y_train_file, y_val_file = \
     data_dir + 'X_train.pkl', data_dir + 'X_val.pkl', data_dir + 'y_train.pkl', data_dir + 'y_val.pkl'
 with open(X_train_file, 'rb') as infile:
-    X_train = pickle.load(infile).sample(16000)
-train_indices = X_train.index
+    X_train = pickle.load(infile)
 with open(X_val_file, 'rb') as infile:
-    X_val = pickle.load(infile).sample(4000)
-val_indices = X_val.index
+    X_val = pickle.load(infile)
 with open(y_train_file, 'rb') as infile:
     y_train = pickle.load(infile)
-y_train = y_train.loc[train_indices]
 with open(y_val_file, 'rb') as infile:
     y_val = pickle.load(infile)
-y_val = y_val.loc[val_indices]
 
 max_words = config.max_words  # max num words processed for each sentence
 max_sentences = config.max_sentences  # max num sentences processed for each article 
 max_vocab = config.max_vocab
+embedding_file = config.embedding_file
 embedding_dim = config.embedding_dim  # size of pretrained word vectors
 attention_dim = config.attention_dim  # num units in attention layer
 GRU_dim = config.GRU_dim  # num units in GRU layer, but it is bidirectional so outputs double this number
 epochs = config.epochs
 batch_size = config.batch_size
 test_size = config.test_size
+use_adam = config.use_adam
 
-vector_file = data_dir + 'glove.6B.200d.txt'
+vector_file = data_dir + embedding_file
 words_file = data_dir + 'words.pkl'
 
 num_samples = X_train.shape[0]
@@ -114,7 +113,21 @@ def create_embedding_matrix(max_vocab=max_vocab, embeddings=embeddings, word_ind
 embeddings = create_embedding_matrix()
 gc.collect()
 
-def build_model(attention_dim=attention_dim, GRU_dim=GRU_dim, drop=False, drop_pct=None,
+model_checkpoint = ModelCheckpoint(filepath=os.path.join(checkpoints_dir, \
+    'weights.{epoch:02d}-{val_loss:.2f}.hdf5'), save_weights_only=True)
+
+if use_adam is True:
+    opt = Adam()
+    drop = True
+    drop_pct = config.drop_pct
+    callbacks = [model_checkpoint]
+else:
+    clr = CyclicLR(epochs=epochs, num_samples=num_samples, batch_size=batch_size)
+    drop = False
+    drop_pct = None
+    callbacks = [clr, model_checkpoint]
+
+def build_model(attention_dim=attention_dim, GRU_dim=GRU_dim, drop=drop, drop_pct=drop_pct,
                 embedding_matrix=embeddings, embedding_dim=embedding_dim, word_index=word_index):
     
     embedding_layer = Embedding(len(word_index) + 1, embedding_dim, weights=[embedding_matrix],
@@ -133,7 +146,7 @@ def build_model(attention_dim=attention_dim, GRU_dim=GRU_dim, drop=False, drop_p
     lstm_sentence = Bidirectional(GRU(GRU_dim, return_sequences=True))(article_encoder)
     attn_sentence = HierarchicalAttentionNetwork(attention_dim)(lstm_sentence)
 
-    #  The Adam optimizer also will be tried and can take a dropout layer
+    #  The Adam optimizer, if used, can take a dropout layer
     if drop:
         drop_sentence = Dropout(drop_pct)(attn_sentence)
         preds = Dense(2, activation='softmax')(drop_sentence)
@@ -141,11 +154,6 @@ def build_model(attention_dim=attention_dim, GRU_dim=GRU_dim, drop=False, drop_p
         preds = Dense(2, activation='softmax')(attn_sentence)
     
     return Model(article_input, preds)
-
-model_checkpoint = ModelCheckpoint(filepath=os.path.join(model_dir, \
-    'weights.{epoch:02d}-{val_loss:.2f}.hdf5'))
-clr = CyclicLR(epochs=epochs, num_samples=num_samples, batch_size=batch_size)
-
 
 if __name__ == "__main__":
 
@@ -155,7 +163,7 @@ if __name__ == "__main__":
         model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['acc'])
 
         hist = model.fit(X_train, y_train, validation_data=(X_val, y_val),
-                batch_size=batch_size, epochs=epochs, callbacks=[clr, model_checkpoint])
+                batch_size=batch_size, epochs=epochs, callbacks=callbacks)
         X_train = None
         X_val = None
         y_train = None
