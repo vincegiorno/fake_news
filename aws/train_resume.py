@@ -14,7 +14,7 @@ from cyclic.rate_cycler import CyclicLR
 from utils.hierarchical import HierarchicalAttentionNetwork
 
 from keras import backend as K
-from keras.models import Model
+from keras.models import Model, load_model
 from keras import initializers
 from keras.engine.topology import Layer
 from keras.layers import Input, Dropout, Dense
@@ -22,6 +22,7 @@ from keras.layers import Embedding, GRU, LSTM, Bidirectional, TimeDistributed
 from keras.utils.np_utils import to_categorical
 from keras.callbacks import ModelCheckpoint, Callback, LambdaCallback
 from keras.optimizers import SGD, Adam
+from keras.utils import CustomObjectScope
 
 from tensorflow import set_random_seed, matmul
 
@@ -46,13 +47,9 @@ with open(y_val_file, 'rb') as infile:
 max_words = config.max_words  # max num words processed for each sentence
 max_sentences = config.max_sentences  # max num sentences processed for each article 
 max_vocab = config.max_vocab
-embedding_file = config.embedding_file
-embedding_dim = config.embedding_dim  # size of pretrained word vectors
-attention_dim = config.attention_dim  # num units in attention layer
-GRU_dim = config.GRU_dim  # num units in GRU layer, but it is bidirectional so outputs double this number
+epoch = config.epoch
 batch_size = config.batch_size
 test_size = config.test_size
-use_adam = config.use_adam
 
 vector_file = data_dir + embedding_file
 words_file = data_dir + 'words.pkl'
@@ -87,88 +84,65 @@ def create_data_matrix(data, max_sentences=max_sentences, max_words=max_words, m
 X_train = create_data_matrix(X_train)
 X_val = create_data_matrix(X_val)
 
-def store_embeddings(vector_file=vector_file):
-    embeddings = {}
-    with open(vector_file) as vectors:
-        for line in vectors:
-            values = line.split()
-            word = values[0]
-            weights = np.asarray(values[1:], dtype='float32')
-            embeddings[word] = weights
-    return embeddings
-            
-embeddings = store_embeddings()
-
-def create_embedding_matrix(max_vocab=max_vocab, embeddings=embeddings, word_index=word_index,
-                            embedding_dim=embedding_dim):
-    embedding_matrix = np.zeros((max_vocab + 1, embedding_dim)) # max_vocab + 1 to account for 0 as masking index
-    for word, i in word_index.items():
-        embedding_vector = embeddings.get(word)
-        if embedding_vector is not None:
-            # words not found in embedding index will remain all zeros.
-            embedding_matrix[i] = embedding_vector
-    return embedding_matrix
-            
-embeddings = create_embedding_matrix()
-gc.collect()
+with CustomObjectScope({'HierarchicalAttentionNetwork': HierarchicalAttentionNetwork}):
+    new_model = load_model(data_dir + 'models/weights.02-0.41.hdf5')
 
 model_checkpoint = ModelCheckpoint(filepath=os.path.join(checkpoints_dir, \
-    'model.1.hdf5'))
+    'model.{}.hdf5'.format(epoch)), save_weights_only=True)
 
-if use_adam is True:
-    opt = Adam()
-    drop = True
-    drop_pct = config.drop_pct
-    callbacks = [model_checkpoint]
-else:
-    opt = SGD(momentum=0.9)
-    clr = CyclicLR(epochs=epochs, num_samples=num_samples, batch_size=batch_size)
-    drop = False
-    drop_pct = None
-    callbacks = [clr, model_checkpoint]
+opt = Adam()
+callbacks = [model_checkpoint]
 
-def build_model(attention_dim=attention_dim, GRU_dim=GRU_dim, drop=drop, drop_pct=drop_pct,
-                embedding_matrix=embeddings, embedding_dim=embedding_dim, word_index=word_index):
-    
-    embedding_layer = Embedding(len(word_index) + 1, embedding_dim, weights=[embedding_matrix],
-                                input_length=max_words, trainable=False, mask_zero=True)
+class HierarchicalAttentionNetwork(Layer):
+    ''''''
+    def __init__(self, **kwargs):
+        self.init_weights = initializers.get('glorot_normal')
+        self.init_bias = initializers.get('zeros')
+        self.supports_masking = True
+        self.attention_dim = attention_dim
+        super().__init__()
 
-    #  Layers for processing words in each sentence with attention; output is encoded sentence vector 
-    sentence_input = Input(shape=(max_words,), dtype='int32')
-    embedded_sequences = embedding_layer(sentence_input)
-    lstm_word = Bidirectional(GRU(GRU_dim, return_sequences=True))(embedded_sequences)
-    attn_word = HierarchicalAttentionNetwork(attention_dim)(lstm_word)
-    sentence_encoder = Model(sentence_input, attn_word)
-    
-    #  Layers for processing sentences in each article with attention; output is prediction
-    article_input = Input(shape=(max_sentences, max_words), dtype='int32')
-    article_encoder = TimeDistributed(sentence_encoder)(article_input)
-    lstm_sentence = Bidirectional(GRU(GRU_dim, return_sequences=True))(article_encoder)
-    attn_sentence = HierarchicalAttentionNetwork(attention_dim)(lstm_sentence)
+    def build(self, input_shape):
+        assert len(input_shape) == 3
+        self.W = K.variable(self.init_weights((input_shape[-1], self.attention_dim)))
+        self.b = K.variable(self.init_bias((self.attention_dim,)))
+        self.u = K.variable(self.init_weights((self.attention_dim, 1)))
+        self.trainable_weights = [self.W, self.b, self.u]
+        super().build(input_shape)
 
-    #  The Adam optimizer, if used, can take a dropout layer
-    if drop:
-        drop_sentence = Dropout(drop_pct)(attn_sentence)
-        preds = Dense(2, activation='softmax')(drop_sentence)
-    else:
-        preds = Dense(2, activation='softmax')(attn_sentence)
-    
-    return Model(article_input, preds)
+    def compute_mask(self, inputs, mask=None):
+        return None
+
+    def call(self, x, mask=None):                
+        uit = K.tanh(K.bias_add(K.dot(x, self.W), self.b))
+        ait = K.exp(K.squeeze(K.dot(uit, self.u), -1))
+        
+        if mask is not None:
+            # Cast the mask to floatX to avoid float64 upcasting
+            ait *= K.cast(mask, K.floatx())
+        ait /= K.cast(K.sum(ait, axis=1, keepdims=True) + K.epsilon(), K.floatx())
+        
+        weighted_input = x * K.expand_dims(ait)
+        output = K.sum(weighted_input, axis=1)
+        return output
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0], input_shape[-1]
 
 if __name__ == "__main__":
 
     try:
-        model = build_model()
-        model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['acc'])
-
+        with CustomObjectScope({'HierarchicalAttentionNetwork': HierarchicalAttentionNetwork}):
+            new_model = load_model('model.{}.hdf5'.format(epoch - 1))
+        opt = Adam()
         hist = model.fit(X_train, y_train, validation_data=(X_val, y_val),
-                batch_size=batch_size, epochs=1, callbacks=callbacks)
+                batch_size=batch_size, epochs=1, callbacks=[model_checkpoint])
         X_train = None
         X_val = None
         y_train = None
         y_val = None
         gc.collect()
-        with open(os.path.join(model_dir, 'history-1.pkl'), 'wb') as outfile:
+        with open(os.path.join(model_dir, 'history-{}.pkl', format(start_epoch)), 'wb') as outfile:
             pickle.dump(hist.history, outfile)
     except Exception as e:
         # Write out an error file. This will be returned as the failureReason in the
