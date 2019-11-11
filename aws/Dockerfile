@@ -14,5 +14,4 @@ COPY train.py .
 RUN chmod +x ./train.py
 
 ENV PATH="/han:${PATH}"
-
 ENTRYPOINT ["./train.py"]

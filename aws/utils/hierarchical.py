@@ -32,13 +32,6 @@ class HierarchicalAttentionNetwork(Layer):
         return None
 
     def call(self, x, mask=None):        
-        #uit = K.tile(K.expand_dims(self.W, axis=0), (K.shape(x)[0], 1, 1))
-        #uit = matmul(x, uit)
-        #uit = K.tanh(K.bias_add(uit, self.b))
-        #ait = K.dot(uit, self.u)
-        #ait = K.squeeze(ait, -1)
-
-        #ait = K.exp(ait)
         
         uit = K.tanh(K.bias_add(K.dot(x, self.W), self.b))
         ait = K.exp(K.squeeze(K.dot(uit, self.u), -1))
