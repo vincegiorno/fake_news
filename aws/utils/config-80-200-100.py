@@ -1,0 +1,10 @@
+max_words = 30
+max_sentences = 30
+max_vocab = 80000
+embedding_dim = 200
+attention_dim = 100
+GRU_dim = 200
+epochs = 6
+batch_size = 128
+test_size = 0.2
+embedding_file = 'glove.6B.200d.txt'
