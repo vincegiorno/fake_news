@@ -10,24 +10,15 @@ import sys
 import traceback
 
 import utils.config as config
-from cyclic.rate_cycler import CyclicLR
-from utils.hierarchical import HierarchicalAttentionNetwork
 
 from keras import backend as K
-from keras.models import Model, load_model
 from keras import initializers
 from keras.engine.topology import Layer
-from keras.layers import Input, Dropout, Dense
-from keras.layers import Embedding, GRU, LSTM, Bidirectional, TimeDistributed
 from keras.utils.np_utils import to_categorical
-from keras.callbacks import ModelCheckpoint, Callback, LambdaCallback
-from keras.optimizers import SGD, Adam
+from keras.callbacks import ModelCheckpoint
+from keras.models import load_model
 from keras.utils import CustomObjectScope
 
-from tensorflow import set_random_seed, matmul
-
-np.random.seed(3)
-set_random_seed(24)
 data_dir = '/opt/ml/input/data/train/'
 model_dir = '/opt/ml/model/'
 checkpoints_dir = '/opt/ml/checkpoints/'
@@ -47,14 +38,13 @@ with open(y_val_file, 'rb') as infile:
 max_words = config.max_words  # max num words processed for each sentence
 max_sentences = config.max_sentences  # max num sentences processed for each article 
 max_vocab = config.max_vocab
+attention_dim = config.attention_dim
 epoch = config.epoch
 batch_size = config.batch_size
-test_size = config.test_size
-
-vector_file = data_dir + embedding_file
 words_file = data_dir + 'words.pkl'
+saved_model_name = 'model.{}.hdf5'.format(epoch - 1)
+saved_model = data_dir + saved_model_name
 
-num_samples = X_train.shape[0]
 y_train = np.asarray(to_categorical(y_train))
 y_val = np.asarray(to_categorical(y_val))
 
@@ -84,15 +74,7 @@ def create_data_matrix(data, max_sentences=max_sentences, max_words=max_words, m
 X_train = create_data_matrix(X_train)
 X_val = create_data_matrix(X_val)
 
-with CustomObjectScope({'HierarchicalAttentionNetwork': HierarchicalAttentionNetwork}):
-    new_model = load_model(data_dir + 'models/weights.02-0.41.hdf5')
-
-model_checkpoint = ModelCheckpoint(filepath=os.path.join(checkpoints_dir, \
-    'model.{}.hdf5'.format(epoch)), save_weights_only=True)
-
-opt = Adam()
-callbacks = [model_checkpoint]
-
+from tensorflow import matmul
 class HierarchicalAttentionNetwork(Layer):
     ''''''
     def __init__(self, **kwargs):
@@ -113,7 +95,7 @@ class HierarchicalAttentionNetwork(Layer):
     def compute_mask(self, inputs, mask=None):
         return None
 
-    def call(self, x, mask=None):                
+    def call(self, x, mask=None):        
         uit = K.tanh(K.bias_add(K.dot(x, self.W), self.b))
         ait = K.exp(K.squeeze(K.dot(uit, self.u), -1))
         
@@ -124,25 +106,25 @@ class HierarchicalAttentionNetwork(Layer):
         
         weighted_input = x * K.expand_dims(ait)
         output = K.sum(weighted_input, axis=1)
+
         return output
 
     def compute_output_shape(self, input_shape):
         return input_shape[0], input_shape[-1]
 
 if __name__ == "__main__":
-
     try:
         with CustomObjectScope({'HierarchicalAttentionNetwork': HierarchicalAttentionNetwork}):
-            new_model = load_model('model.{}.hdf5'.format(epoch - 1))
-        opt = Adam()
+            model = load_model(saved_model)
         hist = model.fit(X_train, y_train, validation_data=(X_val, y_val),
-                batch_size=batch_size, epochs=1, callbacks=[model_checkpoint])
+                batch_size=batch_size, epochs=1)
         X_train = None
         X_val = None
         y_train = None
         y_val = None
         gc.collect()
-        with open(os.path.join(model_dir, 'history-{}.pkl', format(start_epoch)), 'wb') as outfile:
+        model.save(os.path.join(model_dir, 'model.{}.hdf5'.format(epoch)))
+        with open(os.path.join(model_dir, 'history.{}.pkl'.format(epoch)), 'wb') as outfile:
             pickle.dump(hist.history, outfile)
     except Exception as e:
         # Write out an error file. This will be returned as the failureReason in the

@@ -4,7 +4,6 @@ max_vocab = 50000
 embedding_dim = 100
 attention_dim = 16
 GRU_dim = 32
-epochs = 6
 batch_size = 128
 test_size = 0.2
 embedding_file = 'glove.6B.100d.txt'

@@ -119,13 +119,13 @@ if use_adam is True:
     opt = Adam()
     drop = True
     drop_pct = config.drop_pct
-    callbacks = [model_checkpoint]
+    callbacks = None
 else:
     opt = SGD(momentum=0.9)
     clr = CyclicLR(epochs=epochs, num_samples=num_samples, batch_size=batch_size)
     drop = False
     drop_pct = None
-    callbacks = [clr, model_checkpoint]
+    callbacks = [clr]
 
 def build_model(attention_dim=attention_dim, GRU_dim=GRU_dim, drop=drop, drop_pct=drop_pct,
                 embedding_matrix=embeddings, embedding_dim=embedding_dim, word_index=word_index):
@@ -160,15 +160,15 @@ if __name__ == "__main__":
     try:
         model = build_model()
         model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['acc'])
-
         hist = model.fit(X_train, y_train, validation_data=(X_val, y_val),
-                batch_size=batch_size, epochs=1, callbacks=callbacks)
+                batch_size=batch_size, epochs=1)
         X_train = None
         X_val = None
         y_train = None
         y_val = None
         gc.collect()
-        with open(os.path.join(model_dir, 'history-1.pkl'), 'wb') as outfile:
+        model.save(os.path.join(model_dir, 'model.1.hdf5'))
+        with open(os.path.join(model_dir, 'history.1.pkl'), 'wb') as outfile:
             pickle.dump(hist.history, outfile)
     except Exception as e:
         # Write out an error file. This will be returned as the failureReason in the

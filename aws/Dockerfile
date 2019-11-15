@@ -10,8 +10,8 @@ COPY cyclic ./cyclic
 COPY requirements.txt .
 RUN pip3 install -r requirements.txt
 
-COPY train.py .
-RUN chmod +x ./train.py
+COPY train_resume.py .
+RUN chmod +x ./train_resume.py
 
 ENV PATH="/han:${PATH}"
-ENTRYPOINT ["./train.py"]
+ENTRYPOINT ["./train_resume.py"]
