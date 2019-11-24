@@ -1,5 +1,5 @@
 # fake_news
-A project to detect fake news
+Detecting fake news with a hierarchical attention network (using AWS) 
 
 Evaluating the content of a news article is difficult. This project takes a different approach, focusing on language patterns as potentially indicative of more neutral reporting compared to biased writing. It trains a Hierarchical Attention Network on a collection of around 600,000 labeled articles either taken from an [online corpus](https://github.com/several27/FakeNewsCorpus) or scraped from several news websites. The articles were classified as reliable or not reliable based on an overll assessment of the website on which they appeared. This determination relied heavily on the [Media Bias Chart](https://www.adfontesmedia.com/interactive-media-bias-chart/) put together by ad fontes media. The scraped articles were all from sites I deemed reliable, with a rough balance between left- and right-leaning outlets. In training the network, I also endeavored to balance right and left, but I did not fixate on this as the handling of the data neutralized the actual content to a large extent.
 
