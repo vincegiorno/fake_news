@@ -20,9 +20,8 @@ from keras.models import load_model
 from keras.utils import CustomObjectScope
 from tensorflow import matmul
 
-#prefix = '/opt/ml/'
-#model_path = os.path.join(prefix, 'model')
-model_path = '/opt/program/models/'
+prefix = '/opt/ml/'
+model_path = os.path.join(prefix, 'model')
 attention_dim = processing.attention_dim
 
 class HierarchicalAttentionNetwork(Layer):
@@ -49,7 +48,6 @@ class HierarchicalAttentionNetwork(Layer):
         ait = K.exp(K.squeeze(K.dot(uit, self.u), -1))
         
         if mask is not None:
-            # Cast the mask to floatX to avoid float64 upcasting
             ait *= K.cast(mask, K.floatx())
         ait /= K.cast(K.sum(ait, axis=1, keepdims=True) + K.epsilon(), K.floatx())
         
@@ -116,10 +114,9 @@ app = flask.Flask(__name__)
 
 @app.route('/ping', methods=['GET'])
 def ping():
-    """Determine if the container is working and healthy. In this sample container, we declare
-    it healthy if we can load the model successfully."""
-    health = Predictor.get_lr_model() is not None  # You can insert a health check here
-
+    """Pass health check if model artifacts load and a correct prediction is made.
+    """
+    health = Predictor.predict('Too short') == -1
     status = 200 if health else 404
     return flask.Response(response='\n', status=status, mimetype='application/json')
 
