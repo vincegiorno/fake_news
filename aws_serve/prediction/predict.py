@@ -20,9 +20,10 @@ from keras.models import load_model
 from keras.utils import CustomObjectScope
 from tensorflow import matmul
 
-prefix = '/opt/ml/'
-model_path = os.path.join(prefix, 'model')
+#prefix = '/opt/ml/'
+#model_path = os.path.join(prefix, 'model')
 attention_dim = processing.attention_dim
+model_path = 'models/'
 
 class HierarchicalAttentionNetwork(Layer):
     def __init__(self, **kwargs):
@@ -61,10 +62,6 @@ class HierarchicalAttentionNetwork(Layer):
 
 # A singleton that loads the model the first time it is called, holds it and makes predictions.
 class Predictor(object):
-    lr_model = None
-    tfidf = None
-    keras_model = None
-    word_index = None
 
     @classmethod
     def get_lr_model(cls):
@@ -74,7 +71,9 @@ class Predictor(object):
                 cls.lr_model = pickle.load(model)
             with open(os.path.join(model_path, 'tfidf.pkl'), 'rb') as model:
                 cls.tfidf = pickle.load(model)
-        return cls.lr_model, cls.tfidf
+            with open(os.path.join(model_path, 'counter.pkl'), 'rb') as model:
+                cls.counter = pickle.load(model)
+        return cls.lr_model, cls.tfidf, cls.counter
 
     @classmethod
     def get_keras_model(cls):
@@ -98,7 +97,7 @@ class Predictor(object):
             return -1
 
         keras_model, word_index = cls.get_keras_model()
-        lr_model, tfidf = cls.get_lr_model()
+        lr_model, tfidf, counter = cls.get_lr_model()
 
         keras_art = processing.create_data_matrix([article], word_index=word_index)
         keras_output = keras_model.predict(x=keras_art, steps=1)[0][1]
@@ -107,6 +106,7 @@ class Predictor(object):
         transformed = counter.transform(lr_art)
         lr_output = lr_model.predict_proba(tfidf.transform(transformed))[0][1]
 
+        print('keras output = ', keras_output, '\nlr output = ', lr_output)
         return (keras_output + lr_output) / 2
 
 # The flask app for serving predictions
