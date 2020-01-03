@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<h3>
+    This demo app will give you a measure of how trustworthy an article is, based on similarities with 
+    a large collection of other articles. 
+</h3>
+<div>
+    <p>
+        This is intended as a proof of concept, so the unreliability rating is defiitely not intended to be 
+        definitive. Rather, the higher the rating — on a scale up to 100, the greater the chance 
+        that the content is not reliable and you should be cautious about taking it at face value.
+    </p>
+    <p>
+        This is a rather basic and limited interface that will not work well or perhaps at all with anything 
+        but plain text. Copy and paste an article, or at least several paragraphs, into the text area below and 
+        click the submit button. The algorithm removes at least the first and last sentences, and anything in 
+        parentheses or brackets. Additionally, it will reduce quotations of any length to a single sentence 
+        comprising one or more instances of the word "quote" so that content that is not directly part of the 
+        article itself is not used to evaluate the article. An article with an uneven number of (double) 
+        quotation marks will not be evaluated, since the algorithm could not accurately determine which words 
+        were inside of quotations and which outside. What is left must be at least 10 sentences long, or the 
+        algorithm will not perform an evaluation. This is based on the assumption that articles with too few 
+        sentences/words do not provide enough of a basis for a reasonable determination of reliability.
+    </p>
+</div>
+<form action="localhost:8080/invocations" method="POST">
+    <div>
+        <label for="form-area">Paste your article below:</label>
+        <textarea id="form-area" name="article"></textarea>
+    </div>
+    <div>
+        <button>Submit article</button>
+    </div>
+</form>
+{% endblock %}

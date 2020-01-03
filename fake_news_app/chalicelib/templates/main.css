@@ -1,0 +1,24 @@
+body {
+    width: 90%;
+    height: 100%;
+}
+
+div{
+    width: 100%;
+    height: auto;
+}
+
+h1, h3 {
+    font-family: 'IBM Plex Sans Condensed', sans-serif;
+}
+
+p {
+    font-family: 'Open Sans', sans-serif;
+}
+
+#form-area {
+    height: 50vh;
+    width: 60vh;
+    word-wrap: normal;
+    overflow: auto;
+}
