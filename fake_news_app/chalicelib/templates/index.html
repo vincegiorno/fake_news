@@ -1,15 +1,24 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block content %}
+{% if not failed %}
 <h3>
     This demo app will give you a measure of how trustworthy an article is, based on similarities with 
     a large collection of other articles. 
 </h3>
+{% endif %}
 <div>
+    {% if failed %}
+    <p>
+        The app was unable to process the article you submitted. Please review the instructions below and 
+        resubmit the article if you can correct a formatting problem or submit a different article.
+    </p>
+    {% else %}
     <p>
         This is intended as a proof of concept, so the unreliability rating is defiitely not intended to be 
         definitive. Rather, the higher the rating — on a scale up to 100, the greater the chance 
         that the content is not reliable and you should be cautious about taking it at face value.
     </p>
+    {% endif %}
     <p>
         This is a rather basic and limited interface that will not work well or perhaps at all with anything 
         but plain text. Copy and paste an article, or at least several paragraphs, into the text area below and 
@@ -23,10 +32,10 @@
         sentences/words do not provide enough of a basis for a reasonable determination of reliability.
     </p>
 </div>
-<form action="localhost:8080/invocations" method="POST">
+<form action='/relay' method='POST' rows=40 cols=80>
     <div>
-        <label for="form-area">Paste your article below:</label>
-        <textarea id="form-area" name="article"></textarea>
+        <label for='form-area'>Paste your article below:</label>
+        <textarea id='form-area' name='article'></textarea>
     </div>
     <div>
         <button>Submit article</button>

@@ -62,6 +62,9 @@ class HierarchicalAttentionNetwork(Layer):
 
 # A singleton that loads the model the first time it is called, holds it and makes predictions.
 class Predictor(object):
+    lr_model = None
+    keras_model = None
+
 
     @classmethod
     def get_lr_model(cls):
@@ -81,7 +84,7 @@ class Predictor(object):
             model = os.path.join(model_path, 'keras_model.hdf5')
             with CustomObjectScope({'HierarchicalAttentionNetwork': HierarchicalAttentionNetwork}):
                 cls.keras_model = load_model(model)
-        with open(os.path.join(model_path, 'word_index.pkl'), 'rb') as model:
+            with open(os.path.join(model_path, 'word_index.pkl'), 'rb') as model:
                 cls.word_index = pickle.load(model)
         return cls.keras_model, cls.word_index
 
@@ -134,8 +137,8 @@ def score():
         print('Invoked with article containing {} characters'.format(len(data)))
 
         # Do the prediction
-        result = Predictor.predict(data)
-        result = f'Our model gives this article a reliability rating of {round(result * 100, 1)} percent.'
+        result = float(Predictor.predict(data))
+        result = str(round(result * 100, 1))
         status = 200
 
     except Exception as e:

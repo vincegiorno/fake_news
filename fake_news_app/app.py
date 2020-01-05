@@ -1,32 +1,26 @@
 from chalice import Chalice, Response
 from jinja2 import Environment, FileSystemLoader
+import urllib
+import requests
 
 app = Chalice(app_name='fake_news_app')
 loader = FileSystemLoader('chalicelib/templates')
 
 @app.route('/')
 def index():
-    view = Environment(loader=loader).get_template('index.html').render()
+    view = Environment(loader=loader).get_template('index.html').render(failed=False)
     return Response(view, status_code=200, 
                     headers={"Content-Type": "text/html", "Access-Control-Allow-Origin": "*"})
 
-
-# The view function above will return {"hello": "world"}
-# whenever you make an HTTP GET request to '/'.
-#
-# Here are a few more examples:
-#
-# @app.route('/hello/{name}')
-# def hello_name(name):
-#    # '/hello/james' -> {"hello": "james"}
-#    return {'hello': name}
-#
-# @app.route('/users', methods=['POST'])
-# def create_user():
-#     # This is the JSON body the user sent in their POST request.
-#     user_as_json = app.current_request.json_body
-#     # We'll echo the json body back to the user in a 'user' key.
-#     return {'user': user_as_json}
-#
-# See the README documentation for more examples.
-#
+@app.route('/relay', methods=['POST'], content_types=['application/x-www-form-urlencoded'])
+def send_article():
+    text = urllib.parse.parse_qs(app.current_request.__dict__['_body'])[b'article'][0]
+    data = requests.post(url='http://localhost:8080/invocations', data={'article': text.decode('utf-8')})
+    print(data.text)
+    data = float(data.text)
+    if data < 0:
+        view = Environment(loader=loader).get_template('index.html').render(failed=True)
+    else:
+        view = Environment(loader=loader).get_template('response.html').render(score=data)
+    return Response(view, status_code=200, 
+                    headers={'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*'})

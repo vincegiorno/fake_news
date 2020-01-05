@@ -2,11 +2,11 @@
 {% block content %}
 <div>
     <p>We give this article a bias/unreliability rating of {{score}} out of 100.</p>
-    {% if {{score}} >= 75 %}
+    {% if score >= 75 %}
     <p>You should be extra careful about trusting information contained in this article.</p>
-    {% elif {{score}} >= 50 %}
+    {% elif score >= 50 %}
     <p>You should be careful about trusting information contained in this article.</p>
-    {% elif {{score}} >= 25 %}
+    {% elif score >= 25 %}
     <p>This article does not appear to be overly biased, but it is always best to verify 
         information that you find on the Internet.
     </p>
