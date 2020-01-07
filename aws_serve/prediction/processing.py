@@ -28,6 +28,7 @@ class Cleaner(dict):
         return self._make_regex().sub(self, text)
 
 replacements = {"\n": " ",
+                "\r": " ",
                 "\t": " ",
                 "-": " ",
                 "...": " ",
@@ -89,16 +90,21 @@ def process(in_doc):
     if doc._.language['language'] != 'en':
         return None
     colon_count = 0
+    you_count = 0
     for sent in doc.sents:
         text = sent.text
         if ':' in text:
             colon_count += 1
+        if r'(?i)you' in text:
+            you_count +=1
         if not re.search('[.?!] *$', text) or re.search(r'(?i)you', text): # direct appeal to reader or not a sentence
             continue
-        out_doc += sent.text + ' '
+        print(text, '\n\n')
+        out_doc += text + ' '
         count += 1
-    if count < 13 or colon_count > 6: # too short for training or likely contains many unquoted quotations
-        return None
+    if count < 13 or colon_count > 6 or you_count > 3:
+        print('short, likely itv or direct appeals')
+        return None  # too short, or likely contains unquoted quotations, is an itv or directly appeals to reader
     ents = list(set([ent for ent in doc.ents if ent.label_ not in drop_ents]))
     ents = sorted(ents, key=lambda ent: ent_order[ent.label_])
     for ent in ents:
@@ -132,11 +138,14 @@ def convert_quotes(qq):
 
 def reformat(article):
     if not article:
+        print('no article')
         return None
     if type(article) is not str:
+        print('article is not a string')
         return None
     text = unidecode(article)
     if text.count('\N{QUOTATION MARK}') % 2 != 0:
+        print('unbalanced quotation marks')
         return None
     text = preprocess.clean(text)
     text = re.sub(r'^(.{0,50})\(\w+\)', ' ', text) # delete dateline
@@ -156,6 +165,7 @@ def reformat(article):
     try:
         output = process(text)
     except:
+        print('problem in process function')
         output = None
     return output
 

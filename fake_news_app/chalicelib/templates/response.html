@@ -15,6 +15,17 @@
         information that you find on the Internet.</p>
     {% endif %}
 </div>
+<div>
+    <form action='/relay' method='POST' rows=40 cols=80>
+        <div>
+            <label for='form-area'>Paste in another article?</label>
+            <textarea id='form-area' name='article' required></textarea>
+        </div>
+        <div>
+            <button>Submit article</button>
+        </div>
+    </form>
+</div>
 
 
 {% endblock %}

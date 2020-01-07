@@ -12,6 +12,7 @@ import flask
 import numpy as np
 import pandas as pd
 import processing
+import urllib.parse
 
 from keras import backend as K
 from keras import initializers
@@ -90,12 +91,12 @@ class Predictor(object):
 
     @classmethod
     def predict(cls, input):
-        """For the input, do the predictions and return them.
-        Args:
-            input (a pandas dataframe): The data on which to do the predictions. There will be
-                one prediction per row in the dataframe"""
-        
+        """
+        Run the logistic regression and keras models and return the combined output.
+        """
+        print(input, '\n\n')
         article = processing.reformat(input)
+        print(article)
         if not article:
             return -1
 
@@ -112,7 +113,7 @@ class Predictor(object):
         print('keras output = ', keras_output, '\nlr output = ', lr_output)
         return (keras_output + lr_output) / 2
 
-# The flask app for serving predictions
+# A flask app for serving predictions
 app = flask.Flask(__name__)
 
 @app.route('/ping', methods=['GET'])
@@ -133,10 +134,9 @@ def score():
             data = flask.request.data.decode('utf-8')
         else:
             data = flask.request.form['article']
-
-        print('Invoked with article containing {} characters'.format(len(data)))
-
+        
         # Do the prediction
+        print(data, '\n\n')
         result = float(Predictor.predict(data))
         result = str(round(result * 100, 1))
         status = 200
@@ -144,7 +144,7 @@ def score():
     except Exception as e:
             trc = traceback.format_exc()
             print('Exception during processing: ' + str(e) + '\n' + trc)
-            result = 'This predictor only supports single blocks of text'
+            result = str(-2)
             status = 415
 
     return flask.Response(response=result, status=status, mimetype='text/plain')

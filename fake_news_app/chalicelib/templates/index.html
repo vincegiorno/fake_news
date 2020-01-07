@@ -32,13 +32,15 @@
         sentences/words do not provide enough of a basis for a reasonable determination of reliability.
     </p>
 </div>
-<form action='/relay' method='POST' rows=40 cols=80>
-    <div>
-        <label for='form-area'>Paste your article below:</label>
-        <textarea id='form-area' name='article'></textarea>
-    </div>
-    <div>
-        <button>Submit article</button>
-    </div>
-</form>
+<div>
+    <form action='/relay' method='POST' rows=40 cols=80>
+        <div>
+            <label for='form-area'>Paste your article below:</label>
+            <textarea id='form-area' name='article' required></textarea>
+        </div>
+        <div>
+            <button>Submit article</button>
+        </div>
+    </form>
+</div>
 {% endblock %}

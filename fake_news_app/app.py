@@ -1,7 +1,7 @@
 from chalice import Chalice, Response
 from jinja2 import Environment, FileSystemLoader
-import urllib
 import requests
+import urllib.parse
 
 app = Chalice(app_name='fake_news_app')
 loader = FileSystemLoader('chalicelib/templates')
@@ -14,10 +14,14 @@ def index():
 
 @app.route('/relay', methods=['POST'], content_types=['application/x-www-form-urlencoded'])
 def send_article():
-    text = urllib.parse.parse_qs(app.current_request.__dict__['_body'])[b'article'][0]
-    data = requests.post(url='http://localhost:8080/invocations', data={'article': text.decode('utf-8')})
-    print(data.text)
-    data = float(data.text)
+    article = app.current_request.raw_body.decode('utf-8').split('=', 1)[1]
+    print(article, '\n\n')
+    article = urllib.parse.unquote_plus(article)
+    print(article)
+    #print(f'{urllib.parse.unquote_plus(article)}')
+
+    sagemaker_response = requests.post(url='http://localhost:8080/invocations', data={'article': article})
+    data = float(sagemaker_response.text)
     if data < 0:
         view = Environment(loader=loader).get_template('index.html').render(failed=True)
     else:
