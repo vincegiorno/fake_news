@@ -89,22 +89,30 @@ def process(in_doc):
     doc = nlp(in_doc)
     if doc._.language['language'] != 'en':
         return None
-    colon_count = 0
-    you_count = 0
+    num_sents = 0
+    for sent in doc.sents:
+        num_sents += 1
+    if num_sents < 16:
+        start = 1
+        end = num_sents - 2
+    elif num_sents < 20:
+        start = 1
+        end = num_sents - 3
+    elif num_sents < 35:
+        start = 2
+        end = num_sents - 3
+    else:
+        start = 3
+        end = 35
     for sent in doc.sents:
         text = sent.text
-        if ':' in text:
-            colon_count += 1
-        if r'(?i)you' in text:
-            you_count +=1
-        if not re.search('[.?!] *$', text) or re.search(r'(?i)you', text): # direct appeal to reader or not a sentence
+        if not re.search('[.?!] *$', text): # not a sentence if it doesn't end with one of them (and maybe spaces)
             continue
         print(text, '\n\n')
         out_doc += text + ' '
         count += 1
-    if count < 13 or colon_count > 6 or you_count > 3:
-        print('short, likely itv or direct appeals')
-        return None  # too short, or likely contains unquoted quotations, is an itv or directly appeals to reader
+    if count < 8:
+        return None  # too short
     ents = list(set([ent for ent in doc.ents if ent.label_ not in drop_ents]))
     ents = sorted(ents, key=lambda ent: ent_order[ent.label_])
     for ent in ents:
@@ -153,7 +161,9 @@ def reformat(article):
     text = re.sub(r'\S*@\S+', 'email', text) # replace email address or Twitter handle with "email"
     text = re.sub(r'[-a-zA-Z0-9@:%_\+.~#?&\/=]{2,256}\.[a-z]{2,4}(\/[-a-zA-Z0-9@:%_\+.~#?&\/=]*)?', ' website',
                   text) # URLs
-    text = re.sub('[\[\(][^\[\(]*[\]\)]', '', text) # delete text inside parentheses or brackets
+    text = re.sub('\[[^\[]*\]', '', text) # delete text inside brackets
+    text = re.sub('\([^\(]*\)', '', text) # or parentheses
+    text = re.sub('\<[^\<]*\>', '', text) # or angle brackets (in case HTML gets included)
     text = re.sub(r"\b(\w*)n't", lambda m: m.group(1) + ' not', text) # replace remaining "xxn't" contractions with "xx not"
     text = re.sub(r'("[^"]*")', lambda m: convert_quotes(m.group(1)), text) # replace quoted text
     text = re.sub(r"^'|'$|(?<= )'|(?<!s)'(?= )", '"', text) # replace single quotes, but not apostrophes, with double quotes
@@ -167,6 +177,13 @@ def reformat(article):
     except:
         print('problem in process function')
         output = None
+    
+    return output
+
+def finalize(formatted):
+    output = []
+    for sent in nlp(formatted).sents:
+        output.append( [word.text for word in sent if word.pos_ not in ['PUNCT', 'PART', 'SYM', 'NUM']] )
     return output
 
 def recombine(array):
@@ -177,6 +194,7 @@ def create_data_matrix(data, max_sentences=max_sentences, max_words=max_words, m
     data_matrix = np.zeros((len(data), max_sentences, max_words), dtype='int32')
     for i, article in enumerate(data):
         for j, sentence in enumerate(article):
+            print(j, sentence)
             if j == max_sentences:
                 break
             k = 0

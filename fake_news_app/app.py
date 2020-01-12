@@ -15,9 +15,7 @@ def index():
 @app.route('/relay', methods=['POST'], content_types=['application/x-www-form-urlencoded'])
 def send_article():
     article = app.current_request.raw_body.decode('utf-8').split('=', 1)[1]
-    print(article, '\n\n')
     article = urllib.parse.unquote_plus(article)
-    print(article)
     #print(f'{urllib.parse.unquote_plus(article)}')
 
     sagemaker_response = requests.post(url='http://localhost:8080/invocations', data={'article': article})

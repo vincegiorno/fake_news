@@ -94,23 +94,24 @@ class Predictor(object):
         """
         Run the logistic regression and keras models and return the combined output.
         """
-        print(input, '\n\n')
         article = processing.reformat(input)
-        print(article)
         if not article:
             return -1
-
+        article = processing.finalize(article)
+        
         keras_model, word_index = cls.get_keras_model()
         lr_model, tfidf, counter = cls.get_lr_model()
 
+        # The training algorithms expected lists of articles, so single articles must be 1-item lists.
+        # And the keras predict method must also be adapted for making  single prediction.
         keras_art = processing.create_data_matrix([article], word_index=word_index)
         keras_output = keras_model.predict(x=keras_art, steps=1)[0][1]
 
-        lr_art = [processing.recombine(article)]
-        transformed = counter.transform(lr_art)
+        lr_art = processing.recombine(article)
+        transformed = counter.transform([lr_art])
         lr_output = lr_model.predict_proba(tfidf.transform(transformed))[0][1]
 
-        print('keras output = ', keras_output, '\nlr output = ', lr_output)
+        print(f'keras output = {keras_output}, nlr output = {lr_output}')
         return (keras_output + lr_output) / 2
 
 # A flask app for serving predictions
@@ -136,7 +137,6 @@ def score():
             data = flask.request.form['article']
         
         # Do the prediction
-        print(data, '\n\n')
         result = float(Predictor.predict(data))
         result = str(round(result * 100, 1))
         status = 200
